@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { readFile, access } from 'node:fs/promises';
+const html = await readFile('dist/index.html','utf8');
+assert.equal((html.match(/<h1>/g)||[]).length,1,'One main heading');
+assert(!html.includes('{{'),'No template placeholders');
+const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(m=>m[1]);
+assert.equal(new Set(ids).size,ids.length,'Unique element IDs');
+for(const [,id] of html.matchAll(/href="#([^"]+)"/g)) assert(ids.includes(id),`Missing anchor ${id}`);
+for(const [,path] of html.matchAll(/(?:src|href)="(\/[^"#]*)"/g)) if(path!=='/') await access(`dist${path}`);
+for(const [,path] of (await readFile('dist/styles.css','utf8')).matchAll(/url\('(\/[^']+)'\)/g)) await access(`dist${path}`);
+const schema=JSON.parse(html.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
+assert.equal(schema['@graph'].length,3);
+for(const file of ['robots.txt','sitemap.xml','404.html','assets/social.jpg']) await access(`dist/${file}`);
+assert(html.includes('rel="canonical"'),'Canonical URL');
+console.log('Passed: asset references, navigation anchors, metadata, JSON-LD and crawl files');

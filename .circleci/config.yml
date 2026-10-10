@@ -1,0 +1,54 @@
+version: 2.1
+jobs:
+  build:
+    docker:
+      - image: cimg/node:24.20
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run build
+      - run: npm run check
+      - persist_to_workspace:
+          root: .
+          paths: [dist]
+  deploy-production:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - add_ssh_keys
+      - run:
+          name: Trust verified Oracle host key
+          command: |
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            chmod 600 ~/.ssh/known_hosts
+      - run:
+          name: Publish atomic release
+          command: |
+            set -eu
+            release_id="${CIRCLE_SHA1}-${CIRCLE_BUILD_NUM}"
+            case "$DEPLOY_DIR" in /var/www/zeenat-landing) ;; *) echo 'Unexpected DEPLOY_DIR' >&2; exit 1 ;; esac
+            tar -czf /tmp/zeenat-landing.tar.gz -C dist .
+            ssh "${SSH_USER}@${SSH_HOST}" "mkdir -p '${DEPLOY_DIR}/incoming' '${DEPLOY_DIR}/releases'"
+            scp deploy/remote-deploy.sh "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/remote-deploy.sh.new"
+            ssh "${SSH_USER}@${SSH_HOST}" "chmod 755 '${DEPLOY_DIR}/remote-deploy.sh.new' && mv '${DEPLOY_DIR}/remote-deploy.sh.new' '${DEPLOY_DIR}/remote-deploy.sh'"
+            scp /tmp/zeenat-landing.tar.gz "${SSH_USER}@${SSH_HOST}:${DEPLOY_DIR}/incoming/${release_id}.tar.gz"
+            ssh "${SSH_USER}@${SSH_HOST}" "DEPLOY_ROOT='${DEPLOY_DIR}' bash '${DEPLOY_DIR}/remote-deploy.sh' '${release_id}'"
+      - run:
+          name: Verify public page and crawl files
+          command: |
+            curl --fail --silent --show-error https://zeenat.app/ >/dev/null
+            curl --fail --silent --show-error https://zeenat.app/sitemap.xml >/dev/null
+workflows:
+  build_and_deploy:
+    jobs:
+      - build
+      - deploy-production:
+          requires: [build]
+          filters:
+            branches:
+              only: main
