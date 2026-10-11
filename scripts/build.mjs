@@ -27,7 +27,7 @@ const paths = {
 const schema = {'@context':'https://schema.org','@graph':[
  {'@type':'Organization','@id':`${url}/#organization`,name:'Zeenat',url,logo:`${url}/assets/logo.png`},
  {'@type':'WebSite','@id':`${url}/#website`,name:'Zeenat',url,publisher:{'@id':`${url}/#organization`}},
- {'@type':'WebPage','@id':`${url}/#webpage`,url:`${url}/`,name:'Zeenat — Discover local fashion, beauty & community',isPartOf:{'@id':`${url}/#website`},about:{'@id':`${url}/#organization`}}
+ {'@type':'WebPage','@id':`${url}/#webpage`,url:`${url}/`,name:'Zeenat — Local services, marketplace & community',isPartOf:{'@id':`${url}/#website`},about:{'@id':`${url}/#organization`}}
 ]};
 let html = await readFile(new URL('../src/index.html',import.meta.url),'utf8');
 html = html.replaceAll('{{URL}}',url).replace('{{YEAR}}',String(new Date().getUTCFullYear())).replaceAll('{{AVAILABILITY}}',availability).replace('{{STORE_LINKS}}',links).replace('{{SCHEMA}}',JSON.stringify(schema).replaceAll('<','\\u003c')).replace(/\{\{ICON:(\w+)\}\}/g,(_,name)=>{if(!paths[name]) throw Error(`Unknown icon ${name}`);return `<svg viewBox="0 0 24 24" aria-hidden="true">${paths[name]}</svg>`;});
